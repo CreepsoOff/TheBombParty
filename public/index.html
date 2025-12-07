@@ -2,49 +2,62 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>BombParty Ultimate</title>
+    <title>BombParty Circle</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
     <div id="login-screen">
-        <h1 style="font-size: 4rem; margin-bottom: 20px;">💣 BOMB PARTY</h1>
+        <h1>💣 BOMB PARTY</h1>
         <input type="text" id="username" placeholder="Pseudo..." maxlength="12" autofocus>
-        <button class="btn-main" onclick="joinGame()">REJOINDRE</button>
+        <button class="btn-main" onclick="joinGame()">ENTRER</button>
     </div>
 
-    <div id="game-container" class="hidden">
+    <div id="game-interface" class="hidden">
         
-        <div class="arena">
-            <button class="settings-btn" onclick="toggleSettings()">⚙️</button>
+        <div class="arena" id="arena">
             
+            <button class="settings-btn" onclick="toggleSettings()">⚙️</button>
             <div id="settings-modal" class="settings-modal hidden">
-                <h3>Paramètres de la partie</h3>
-                <label>Vies au départ: <input type="number" id="set-lives" value="3"></label>
-                <label>Temps Min (s): <input type="number" id="set-min" value="10"></label>
-                <label>Temps Max (s): <input type="number" id="set-max" value="25"></label>
-                <button class="btn-main" onclick="saveSettings()">Valider</button>
-                <button onclick="toggleSettings()" style="background:none; border:none; color:#ccc; cursor:pointer; margin-top:10px;">Fermer</button>
-            </div>
-
-            <div class="center-piece">
-                <div class="bomb-visual" id="bomb">💣</div>
-                <div class="syllable" id="syllable-display">...</div>
-                <div id="status-msg">En attente...</div>
-            </div>
-
-            <div class="players-grid" id="players-grid">
+                <h3>Paramètres</h3>
+                <div id="settings-content">
+                    <label>Vies: <input type="number" id="set-lives"></label>
+                    <label>Min (s): <input type="number" id="set-min"></label>
+                    <label>Max (s): <input type="number" id="set-max"></label>
                 </div>
+                <div style="margin-top:10px; text-align:right;">
+                    <button id="save-settings-btn" class="btn-main" onclick="saveSettings()" style="font-size:0.8rem; padding:5px 10px;">Sauvegarder</button>
+                    <button onclick="toggleSettings()" style="background:none; border:none; color:#888; cursor:pointer;">Fermer</button>
+                </div>
+                <div id="settings-lock-msg" class="msg-system hidden">🔒 Réservé à l'hôte ou partie en cours</div>
+            </div>
+
+            <div class="center-hub">
+                <div class="pointer-container" id="pointer">
+                    <div class="arrow"></div>
+                </div>
+                <div class="bomb-visual" id="bomb">💣</div>
+                <div class="syllable-text" id="syllable-display">??</div>
+            </div>
+
+            <div id="players-container"></div>
 
             <div id="start-overlay" class="hidden">
                 <button class="btn-main" onclick="sendStart()">LANCER LA PARTIE</button>
             </div>
-            
-            <input type="text" id="main-input" autocomplete="off">
+        </div>
+
+        <div class="chat-panel">
+            <div class="chat-messages" id="chat-feed">
+                <div class="msg-system">Bienvenue sur BombParty !</div>
+            </div>
+            <div class="chat-input-area">
+                <input type="text" id="chat-input" placeholder="Discuter..." autocomplete="off">
+            </div>
         </div>
     </div>
 
-    <script src="/socket.io/socket.io.js"></script>
+    <input type="text" id="main-input" autocomplete="off"> <script src="/socket.io/socket.io.js"></script>
     <script src="client.js"></script>
 </body>
 </html>
