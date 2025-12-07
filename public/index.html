@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>BombParty Circle</title>
+    <title>BombParty Pro</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -15,9 +15,22 @@
 
     <div id="game-interface" class="hidden">
         
+        <div class="chat-panel" id="chat-panel">
+            <button class="chat-toggle" onclick="toggleChat()">💬</button>
+            <div class="chat-content">
+                <div class="chat-messages" id="chat-feed">
+                    <div class="msg-system">Bienvenue !</div>
+                </div>
+                <div class="chat-input-area">
+                    <input type="text" id="chat-input" placeholder="Chat..." autocomplete="off">
+                </div>
+            </div>
+        </div>
+
         <div class="arena" id="arena">
             
             <button class="settings-btn" onclick="toggleSettings()">⚙️</button>
+            
             <div id="settings-modal" class="settings-modal hidden">
                 <h3>Paramètres</h3>
                 <div id="settings-content">
@@ -26,16 +39,14 @@
                     <label>Max (s): <input type="number" id="set-max"></label>
                 </div>
                 <div style="margin-top:10px; text-align:right;">
-                    <button id="save-settings-btn" class="btn-main" onclick="saveSettings()" style="font-size:0.8rem; padding:5px 10px;">Sauvegarder</button>
-                    <button onclick="toggleSettings()" style="background:none; border:none; color:#888; cursor:pointer;">Fermer</button>
+                    <button id="save-settings-btn" class="btn-main" onclick="saveSettings()">OK</button>
+                    <button onclick="toggleSettings()" class="btn-close">Fermer</button>
                 </div>
-                <div id="settings-lock-msg" class="msg-system hidden">🔒 Réservé à l'hôte ou partie en cours</div>
+                <div id="settings-lock-msg" class="msg-system hidden">🔒 Verrouillé</div>
             </div>
 
             <div class="center-hub">
-                <div class="pointer-container" id="pointer">
-                    <div class="arrow"></div>
-                </div>
+                <div class="pointer-container" id="pointer"><div class="arrow"></div></div>
                 <div class="bomb-visual" id="bomb">💣</div>
                 <div class="syllable-text" id="syllable-display">??</div>
             </div>
@@ -47,17 +58,16 @@
             </div>
         </div>
 
-        <div class="chat-panel">
-            <div class="chat-messages" id="chat-feed">
-                <div class="msg-system">Bienvenue sur BombParty !</div>
-            </div>
-            <div class="chat-input-area">
-                <input type="text" id="chat-input" placeholder="Discuter..." autocomplete="off">
-            </div>
+        <div class="sidebar-right">
+            <h3>ALPHABET</h3>
+            <div class="alphabet-grid" id="local-alphabet-grid">
+                </div>
         </div>
     </div>
 
-    <input type="text" id="main-input" autocomplete="off"> <script src="/socket.io/socket.io.js"></script>
+    <input type="text" id="main-input" autocomplete="off">
+
+    <script src="/socket.io/socket.io.js"></script>
     <script src="client.js"></script>
 </body>
 </html>
