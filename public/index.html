@@ -2,38 +2,45 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>BombParty Clone</title>
+    <title>BombParty Ultimate</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
     <div id="login-screen">
-        <h1>BOMB PARTY 💣</h1>
-        <input type="text" id="username" placeholder="Choisis ton pseudo..." maxlength="12" autofocus>
-        <button onclick="joinGame()">JOUER !</button>
+        <h1 style="font-size: 4rem; margin-bottom: 20px;">💣 BOMB PARTY</h1>
+        <input type="text" id="username" placeholder="Pseudo..." maxlength="12" autofocus>
+        <button class="btn-main" onclick="joinGame()">REJOINDRE</button>
     </div>
 
-    <div id="game-screen" class="hidden">
-        <div class="sidebar">
-            <h3>Joueurs</h3>
-            <ul id="player-list"></ul>
-            <button id="start-btn" onclick="startGameCmd()" class="hidden">LANCER LA PARTIE</button>
-        </div>
+    <div id="game-container" class="hidden">
+        
+        <div class="arena">
+            <button class="settings-btn" onclick="toggleSettings()">⚙️</button>
+            
+            <div id="settings-modal" class="settings-modal hidden">
+                <h3>Paramètres de la partie</h3>
+                <label>Vies au départ: <input type="number" id="set-lives" value="3"></label>
+                <label>Temps Min (s): <input type="number" id="set-min" value="10"></label>
+                <label>Temps Max (s): <input type="number" id="set-max" value="25"></label>
+                <button class="btn-main" onclick="saveSettings()">Valider</button>
+                <button onclick="toggleSettings()" style="background:none; border:none; color:#ccc; cursor:pointer; margin-top:10px;">Fermer</button>
+            </div>
 
-        <div class="main-area">
-            <div id="bomb-container">
-                <div class="bomb">💣</div>
+            <div class="center-piece">
+                <div class="bomb-visual" id="bomb">💣</div>
+                <div class="syllable" id="syllable-display">...</div>
+                <div id="status-msg">En attente...</div>
+            </div>
+
+            <div class="players-grid" id="players-grid">
+                </div>
+
+            <div id="start-overlay" class="hidden">
+                <button class="btn-main" onclick="sendStart()">LANCER LA PARTIE</button>
             </div>
             
-            <div id="syllable-display">PRÊT ?</div>
-            
-            <div id="timer-bar"><div id="timer-fill"></div></div>
-
-            <div id="status-message">En attente de joueurs...</div>
-
-            <div class="input-area">
-                <input type="text" id="word-input" placeholder="Tape ton mot ici..." autocomplete="off" disabled>
-            </div>
+            <input type="text" id="main-input" autocomplete="off">
         </div>
     </div>
 

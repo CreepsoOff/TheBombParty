@@ -1,58 +1,160 @@
+:root {
+    --bg-color: #1a1a1a;
+    --card-bg: #2d3436;
+    --accent: #ff9f43;
+    --success: #2ed573;
+    --error: #ff4757;
+}
+
 body {
-    background-color: #1e1e1e;
+    background-color: var(--bg-color);
     color: white;
-    font-family: sans-serif;
+    font-family: 'Segoe UI', sans-serif;
     margin: 0;
-    display: flex;
-    justify-content: center;
-    align-items: center;
+    overflow: hidden;
     height: 100vh;
 }
 
 .hidden { display: none !important; }
 
-/* Login */
-#login-screen { text-align: center; }
-input { padding: 15px; font-size: 1.2rem; border-radius: 8px; border: none; text-align: center; }
-button { padding: 15px 30px; font-size: 1.2rem; cursor: pointer; background: #ff4757; color: white; border: none; border-radius: 8px; margin-top: 10px; }
-button:hover { background: #ff6b81; }
-
-/* Jeu */
-#game-screen {
+/* --- ECRAN LOGIN --- */
+#login-screen {
+    height: 100vh;
     display: flex;
-    width: 900px;
-    height: 600px;
-    background: #2f3542;
-    border-radius: 15px;
-    box-shadow: 0 0 50px rgba(0,0,0,0.5);
-    overflow: hidden;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+#login-screen input { padding: 15px; font-size: 1.5rem; border-radius: 10px; border: none; text-align: center; margin: 10px; }
+.btn-main { padding: 15px 40px; font-size: 1.5rem; background: var(--success); color: white; border: none; border-radius: 10px; cursor: pointer; transition: 0.2s; }
+.btn-main:hover { transform: scale(1.05); }
+
+/* --- ECRAN JEU --- */
+#game-container {
+    display: flex;
+    height: 100vh;
+    padding: 20px;
+    box-sizing: border-box;
+    gap: 20px;
 }
 
-.sidebar { width: 250px; background: #222; padding: 20px; display: flex; flex-direction: column; }
-#player-list { padding: 0; flex-grow: 1; }
-#player-list li { list-style: none; padding: 10px; border-bottom: 1px solid #444; display: flex; justify-content: space-between; }
+/* Zone Centrale (Arène) */
+.arena {
+    flex-grow: 1;
+    background: #222;
+    border-radius: 20px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    box-shadow: inset 0 0 50px rgba(0,0,0,0.5);
+}
 
-.active-player { color: #2ed573; font-weight: bold; background: #333; }
-.dead-player { text-decoration: line-through; color: #777; }
+/* Paramètres */
+.settings-btn { position: absolute; top: 20px; right: 20px; background: none; border: none; font-size: 2rem; cursor: pointer; }
+.settings-modal {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    background: var(--card-bg); padding: 30px; border-radius: 15px; z-index: 100;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.8);
+    display: flex; flex-direction: column; gap: 10px;
+}
 
-.main-area { flex-grow: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; }
+/* Bombe et Syllabe */
+.center-piece { text-align: center; z-index: 10; margin-bottom: 50px; }
+.bomb-visual { font-size: 6rem; filter: drop-shadow(0 0 10px rgba(0,0,0,0.5)); transition: transform 0.1s; }
+.syllable { font-size: 4rem; font-weight: 900; color: var(--accent); text-transform: uppercase; text-shadow: 0 0 20px var(--accent); }
 
-/* Éléments centraux */
-#syllable-display { font-size: 5rem; font-weight: bold; margin: 20px 0; color: #ffa502; }
-.bomb { font-size: 8rem; transition: transform 0.2s; }
-.shake { animation: shake 0.5s infinite; }
+/* Joueurs (Grille) */
+.players-grid {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 30px;
+    width: 100%;
+    max-width: 1200px;
+}
 
-#timer-bar { width: 70%; height: 12px; background: #444; border-radius: 6px; overflow: hidden; margin-bottom: 30px; }
-#timer-fill { width: 100%; height: 100%; background: #2ed573; transition: width 1s linear; }
-.critical #timer-fill { background: #ff4757; }
+.player-card {
+    background: var(--card-bg);
+    padding: 15px;
+    border-radius: 15px;
+    width: 180px;
+    text-align: center;
+    position: relative;
+    border: 3px solid transparent;
+    transition: all 0.3s;
+}
 
-#word-input { width: 60%; font-size: 2rem; text-transform: uppercase; border: 3px solid transparent; }
-#word-input.error { border-color: #ff4757; animation: shake 0.3s; }
+.player-card.active { border-color: var(--success); transform: scale(1.1); box-shadow: 0 0 20px rgba(46, 213, 115, 0.4); }
+.player-card.dead { filter: grayscale(1); opacity: 0.6; }
+.player-card.shake { animation: shake 0.4s; border-color: var(--error); }
+
+.avatar { font-size: 3rem; margin-bottom: 5px; position: relative;}
+.lives { color: var(--error); font-size: 1.2rem; margin-bottom: 5px; }
+
+/* Alphabet du joueur */
+.alphabet-track {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 2px;
+    margin-top: 5px;
+}
+.letter {
+    font-size: 0.6rem; color: #555; font-weight: bold; width: 10px;
+}
+.letter.found { color: gold; text-shadow: 0 0 5px gold; }
+
+/* Zone de frappe sous l'avatar */
+.typing-display {
+    height: 25px;
+    background: rgba(0,0,0,0.3);
+    border-radius: 5px;
+    margin-top: 5px;
+    font-family: monospace;
+    font-size: 1rem;
+    overflow: hidden;
+    white-space: nowrap;
+    color: #ccc;
+}
+.highlight { color: var(--success); font-weight: bold; text-decoration: underline; }
+
+/* Input Principal (Invisible mais focus) */
+#main-input {
+    position: absolute; opacity: 0; top: -1000px;
+}
+
+/* Animations & Effets */
+.floating-emoji {
+    position: absolute;
+    font-size: 2rem;
+    pointer-events: none;
+    animation: floatUp 1.5s forwards;
+}
+
+.cross-anim {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    font-size: 5rem; color: var(--error); opacity: 0;
+}
+.show-cross { animation: popFade 0.8s; }
 
 @keyframes shake {
-    0% { transform: translate(1px, 1px) rotate(0deg); }
-    25% { transform: translate(-3px, 0px) rotate(1deg); }
-    50% { transform: translate(-1px, 2px) rotate(-1deg); }
-    75% { transform: translate(3px, 1px) rotate(-1deg); }
-    100% { transform: translate(1px, -2px) rotate(-1deg); }
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-10px); }
+    75% { transform: translateX(10px); }
+}
+@keyframes floatUp {
+    0% { transform: translateY(0) scale(1); opacity: 1; }
+    100% { transform: translateY(-100px) scale(1.5); opacity: 0; }
+}
+@keyframes popFade {
+    0% { transform: translate(-50%, -50%) scale(0); opacity: 0; }
+    50% { transform: translate(-50%, -50%) scale(1.2); opacity: 1; }
+    100% { transform: translate(-50%, -50%) scale(1); opacity: 0; }
+}
+
+/* Bouton Start */
+#start-overlay {
+    position: absolute; bottom: 50px;
 }

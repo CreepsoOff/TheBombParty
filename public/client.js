@@ -1,133 +1,260 @@
 const socket = io();
 
-// Éléments du DOM
-const loginScreen = document.getElementById('login-screen');
-const gameScreen = document.getElementById('game-screen');
-const playerList = document.getElementById('player-list');
+// DOM Elements
+const views = {
+    login: document.getElementById('login-screen'),
+    game: document.getElementById('game-container')
+};
+const grid = document.getElementById('players-grid');
+const mainInput = document.getElementById('main-input');
 const syllableDisplay = document.getElementById('syllable-display');
-const wordInput = document.getElementById('word-input');
-const statusMessage = document.getElementById('status-message');
-const timerFill = document.getElementById('timer-fill');
-const bomb = document.querySelector('.bomb');
-const startBtn = document.getElementById('start-btn');
+const bomb = document.getElementById('bomb');
+const statusMsg = document.getElementById('status-msg');
 
-// --- FONCTIONS JOUEUR ---
+let myId = null;
+let currentSyllable = "";
+let isMyTurn = false;
+
+// --- SONS ---
+const sounds = {
+    pop: new Audio('https://codeskulptor-demos.commondatastorage.googleapis.com/pang/pop.mp3'), // Placeholder
+    explode: new Audio('https://codeskulptor-demos.commondatastorage.googleapis.com/GalaxyInvaders/explosion_02.mp3'),
+    error: new Audio('https://codeskulptor-demos.commondatastorage.googleapis.com/assets/sounddogs/missile.mp3')
+};
+// Réduire le volume
+Object.values(sounds).forEach(s => s.volume = 0.3);
+
+// --- FONCTIONS ---
 
 function joinGame() {
-    const username = document.getElementById('username').value;
-    if (!username) return;
+    const user = document.getElementById('username').value;
+    if(!user) return;
+    socket.emit('join-game', user);
+    views.login.classList.add('hidden');
+    views.game.classList.remove('hidden');
     
-    socket.emit('join-game', username);
-    loginScreen.classList.add('hidden');
-    gameScreen.classList.remove('hidden');
+    // Focus permanent sur l'input invisible pour jouer au clavier direct
+    document.addEventListener('click', () => mainInput.focus());
+    mainInput.focus();
 }
 
-function startGameCmd() {
+function sendStart() {
     socket.emit('start-command');
 }
 
-// Envoi du mot avec la touche Entrée
-wordInput.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') {
-        socket.emit('submit-word', wordInput.value);
-        wordInput.value = '';
+function toggleSettings() {
+    document.getElementById('settings-modal').classList.toggle('hidden');
+}
+
+function saveSettings() {
+    const lives = parseInt(document.getElementById('set-lives').value);
+    const min = parseInt(document.getElementById('set-min').value);
+    const max = parseInt(document.getElementById('set-max').value);
+    socket.emit('update-settings', { initialLives: lives, minTime: min, maxTime: max });
+    toggleSettings();
+}
+
+// GENERATION DE LA CARTE JOUEUR
+function renderPlayer(p) {
+    // Alphabet HTML
+    let alphaHTML = '';
+    const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    for(let char of alphabet) {
+        const found = p.usedLetters.includes(char) ? 'found' : '';
+        alphaHTML += `<span class="letter ${found}" id="alpha-${p.id}-${char}">${char}</span>`;
+    }
+
+    // Vies (Coeurs)
+    let hearts = '❤️'.repeat(p.lives);
+
+    return `
+        <div class="player-card ${p.lives <= 0 ? 'dead' : ''}" id="card-${p.id}">
+            <div class="cross-anim" id="cross-${p.id}">❌</div>
+            <div class="lives" id="lives-${p.id}">${hearts}</div>
+            <div class="avatar">
+                 ${p.lives > 0 ? getAvatarEmoji(p.avatar) : '💀'}
+                 ${p.lives > 0 ? '<span class="floating-emoji hidden" id="float-'+p.id+'">👍</span>' : ''}
+            </div>
+            <div class="username">${p.username}</div>
+            <div class="typing-display" id="type-${p.id}"></div>
+            <div class="alphabet-track">${alphaHTML}</div>
+        </div>
+    `;
+}
+
+function getAvatarEmoji(id) {
+    const avatars = ['🤖', '🦊', '🐱', '🐼', '🐸', '👽'];
+    return avatars[id % avatars.length];
+}
+
+function triggerAnim(id, type) {
+    const card = document.getElementById(`card-${id}`);
+    if(!card) return;
+
+    if(type === 'shake') {
+        card.classList.add('shake');
+        sounds.error.play();
+        const cross = document.getElementById(`cross-${id}`);
+        cross.classList.add('show-cross');
+        setTimeout(() => {
+            card.classList.remove('shake');
+            cross.classList.remove('show-cross');
+        }, 800);
+    }
+    
+    if(type === 'success') {
+        sounds.pop.play();
+        const float = document.getElementById(`float-${id}`);
+        if(float) {
+            float.textContent = "👍"; 
+            float.classList.remove('hidden');
+            float.style.animation = 'none';
+            float.offsetHeight; /* trigger reflow */
+            float.style.animation = 'floatUp 1s forwards';
+        }
+    }
+}
+
+// --- GESTION INPUT & TYPING ---
+
+mainInput.addEventListener('input', (e) => {
+    if(!isMyTurn) {
+        mainInput.value = "";
+        return;
+    }
+    const text = mainInput.value;
+    socket.emit('typing', text);
+    updateTypingDisplay(socket.id, text);
+});
+
+mainInput.addEventListener('keydown', (e) => {
+    if(e.key === 'Enter') {
+        socket.emit('submit-word', mainInput.value);
+        mainInput.value = '';
+        updateTypingDisplay(socket.id, '');
     }
 });
 
-// --- ÉVÉNEMENTS REÇUS DU SERVEUR ---
+function updateTypingDisplay(id, text) {
+    const display = document.getElementById(`type-${id}`);
+    if(!display) return;
+
+    if(!text) {
+        display.innerHTML = "";
+        return;
+    }
+
+    // Highlight logic
+    // On cherche la syllabe dans le texte (insensible à la casse)
+    if(currentSyllable) {
+        const regex = new RegExp(`(${currentSyllable})`, 'i');
+        const html = text.replace(regex, '<span class="highlight">$1</span>');
+        display.innerHTML = html;
+    } else {
+        display.textContent = text;
+    }
+}
+
+// --- SOCKET EVENTS ---
 
 socket.on('update-players', (players) => {
-    playerList.innerHTML = '';
-    let amIAdmin = false; // Logique simple: le premier joueur est admin
+    // On recrée la grille tout en essayant de ne pas briser les animations en cours
+    // Pour simplifier ici, on redraw. Pour opti, on ferait du diffing.
+    grid.innerHTML = players.map(renderPlayer).join('');
     
-    players.forEach((p, index) => {
-        const li = document.createElement('li');
-        li.innerHTML = `<span>${p.username}</span> <span>❤️ ${p.lives}</span>`;
-        li.id = `p-${p.id}`;
-        
-        if (p.lives <= 0) li.classList.add('dead-player');
-        playerList.appendChild(li);
-        
-        if (index === 0 && p.id === socket.id) amIAdmin = true;
-    });
+    if(players.length >= 2) document.getElementById('start-overlay').classList.remove('hidden');
+});
 
-    // Afficher le bouton "Lancer" seulement si on est 2+ et admin (simplifié ici à tout le monde si >1)
-    if (players.length >= 2) startBtn.classList.remove('hidden');
-    else startBtn.classList.add('hidden');
+socket.on('game-started', (players) => {
+    document.getElementById('start-overlay').classList.add('hidden');
+    statusMsg.textContent = "C'EST PARTI !";
+    grid.innerHTML = players.map(renderPlayer).join(''); // Reset propre
 });
 
 socket.on('new-turn', (data) => {
-    const isMyTurn = data.player.id === socket.id;
-    
+    currentSyllable = data.syllable;
     syllableDisplay.textContent = data.syllable;
-    statusMessage.textContent = isMyTurn ? "C'EST À TOI !" : `Tour de ${data.player.username}`;
-    statusMessage.style.color = isMyTurn ? "#2ed573" : "#ccc";
     
-    // Mise en évidence du joueur actif dans la liste
-    document.querySelectorAll('li').forEach(li => li.classList.remove('active-player'));
-    const activeLi = document.getElementById(`p-${data.player.id}`);
-    if (activeLi) activeLi.classList.add('active-player');
+    // Visuel Actif
+    document.querySelectorAll('.player-card').forEach(c => c.classList.remove('active'));
+    const activeCard = document.getElementById(`card-${data.playerId}`);
+    if(activeCard) activeCard.classList.add('active');
 
-    // Activer l'input seulement si c'est notre tour
-    wordInput.disabled = !isMyTurn;
-    if (isMyTurn) {
-        wordInput.focus();
-        wordInput.placeholder = `Contenant "${data.syllable}"...`;
+    // Input logic
+    isMyTurn = (data.playerId === socket.id);
+    mainInput.value = "";
+    updateTypingDisplay(data.playerId, "");
+    
+    if(isMyTurn) {
+        statusMsg.textContent = "À TOI DE JOUER !";
+        statusMsg.style.color = "#2ed573";
+        mainInput.focus();
     } else {
-        wordInput.value = "";
-        wordInput.placeholder = "Attends ton tour...";
+        const pName = activeCard ? activeCard.querySelector('.username').innerText : '?';
+        statusMsg.textContent = `Au tour de ${pName}`;
+        statusMsg.style.color = "#fff";
     }
 
-    // Reset visuels
-    timerFill.style.width = '100%';
-    timerFill.parentElement.classList.remove('critical');
-    bomb.classList.remove('shake');
+    // Animation bombe (tick tock simulé)
+    bomb.style.animation = "shake 1s infinite";
 });
 
-socket.on('timer-update', (timeLeft) => {
-    const percentage = (timeLeft / 15) * 100; // 15 est le temps max
-    timerFill.style.width = `${percentage}%`;
+socket.on('player-typing', (data) => {
+    updateTypingDisplay(data.id, data.text);
+});
+
+socket.on('word-error', (msg) => {
+    triggerAnim(socket.id, 'shake');
+    statusMsg.textContent = "❌ " + msg;
+});
+
+socket.on('word-success', (data) => {
+    triggerAnim(data.playerId, 'success');
     
-    if (timeLeft <= 5) {
-        timerFill.parentElement.classList.add('critical');
-        bomb.classList.add('shake');
+    // Mettre à jour l'alphabet visuellement
+    data.newLetters.forEach(char => {
+        const el = document.getElementById(`alpha-${data.playerId}-${char}`);
+        if(el) el.classList.add('found');
+    });
+
+    // Reset alphabet si bonus
+    if(data.resetAlphabet) {
+        document.querySelectorAll(`#card-${data.playerId} .alphabet-track .letter`).forEach(l => l.classList.remove('found'));
+        // Animation spéciale vie bonus
+        const float = document.getElementById(`float-${data.playerId}`);
+        if(float) { float.textContent = "❤️ +1"; float.style.animation = 'floatUp 2s forwards'; }
     }
-});
-
-socket.on('word-success', (word) => {
-    // Petit effet visuel quand un mot est validé
-    const notif = document.createElement('div');
-    notif.textContent = `✅ ${word}`;
-    notif.style.position = 'absolute';
-    notif.style.top = '20%';
-    notif.style.color = '#2ed573';
-    notif.style.fontSize = '2rem';
-    notif.style.animation = 'fadeUp 1s forwards';
-    document.querySelector('.main-area').appendChild(notif);
-    setTimeout(() => notif.remove(), 1000);
-});
-
-socket.on('error-message', (msg) => {
-    statusMessage.textContent = `❌ ${msg}`;
-    wordInput.classList.add('error');
-    setTimeout(() => wordInput.classList.remove('error'), 500);
+    
+    // Mettre à jour les vies
+    const livesDiv = document.getElementById(`lives-${data.playerId}`);
+    if(livesDiv) livesDiv.textContent = '❤️'.repeat(data.lives);
 });
 
 socket.on('explosion', (data) => {
-    statusMessage.textContent = "💥 BOOM ! 💥";
-    syllableDisplay.textContent = "XXX";
+    sounds.explode.play();
+    statusMsg.textContent = "💥 BOOM !";
+    bomb.style.animation = "none";
     bomb.style.transform = "scale(1.5)";
-    setTimeout(() => bomb.style.transform = "scale(1)", 500);
+    setTimeout(() => bomb.style.transform = "scale(1)", 300);
+
+    triggerAnim(data.loserId, 'shake');
+    
+    // Update vies
+    const livesDiv = document.getElementById(`lives-${data.loserId}`);
+    if(livesDiv) livesDiv.textContent = '❤️'.repeat(data.livesLeft);
+});
+
+socket.on('player-eliminated', (id) => {
+    const card = document.getElementById(`card-${id}`);
+    if(card) {
+        card.classList.add('dead');
+        card.querySelector('.avatar').innerHTML = '💀';
+    }
 });
 
 socket.on('game-over', (winner) => {
-    statusMessage.textContent = winner ? `🏆 ${winner.username} A GAGNÉ ! 🏆` : "Fin de partie";
     syllableDisplay.textContent = "FIN";
-    wordInput.disabled = true;
-    startBtn.classList.remove('hidden');
+    statusMsg.textContent = `VICTOIRE DE ${winner.username} ! 👑`;
+    document.getElementById('start-overlay').classList.remove('hidden');
+    bomb.style.animation = "none";
 });
-
-// CSS rapide pour l'anim de succès
-const style = document.createElement('style');
-style.textContent = `@keyframes fadeUp { 0% { opacity:1; transform:translateY(0); } 100% { opacity:0; transform:translateY(-50px); } }`;
-document.head.appendChild(style);
