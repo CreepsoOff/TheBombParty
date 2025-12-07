@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>BombParty Clone</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div id="login-screen">
+        <h1>BOMB PARTY 💣</h1>
+        <input type="text" id="username" placeholder="Choisis ton pseudo..." maxlength="12" autofocus>
+        <button onclick="joinGame()">JOUER !</button>
+    </div>
+
+    <div id="game-screen" class="hidden">
+        <div class="sidebar">
+            <h3>Joueurs</h3>
+            <ul id="player-list"></ul>
+            <button id="start-btn" onclick="startGameCmd()" class="hidden">LANCER LA PARTIE</button>
+        </div>
+
+        <div class="main-area">
+            <div id="bomb-container">
+                <div class="bomb">💣</div>
+            </div>
+            
+            <div id="syllable-display">PRÊT ?</div>
+            
+            <div id="timer-bar"><div id="timer-fill"></div></div>
+
+            <div id="status-message">En attente de joueurs...</div>
+
+            <div class="input-area">
+                <input type="text" id="word-input" placeholder="Tape ton mot ici..." autocomplete="off" disabled>
+            </div>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="client.js"></script>
+</body>
+</html>

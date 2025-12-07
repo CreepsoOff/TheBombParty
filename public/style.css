@@ -1,0 +1,58 @@
+body {
+    background-color: #1e1e1e;
+    color: white;
+    font-family: sans-serif;
+    margin: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+}
+
+.hidden { display: none !important; }
+
+/* Login */
+#login-screen { text-align: center; }
+input { padding: 15px; font-size: 1.2rem; border-radius: 8px; border: none; text-align: center; }
+button { padding: 15px 30px; font-size: 1.2rem; cursor: pointer; background: #ff4757; color: white; border: none; border-radius: 8px; margin-top: 10px; }
+button:hover { background: #ff6b81; }
+
+/* Jeu */
+#game-screen {
+    display: flex;
+    width: 900px;
+    height: 600px;
+    background: #2f3542;
+    border-radius: 15px;
+    box-shadow: 0 0 50px rgba(0,0,0,0.5);
+    overflow: hidden;
+}
+
+.sidebar { width: 250px; background: #222; padding: 20px; display: flex; flex-direction: column; }
+#player-list { padding: 0; flex-grow: 1; }
+#player-list li { list-style: none; padding: 10px; border-bottom: 1px solid #444; display: flex; justify-content: space-between; }
+
+.active-player { color: #2ed573; font-weight: bold; background: #333; }
+.dead-player { text-decoration: line-through; color: #777; }
+
+.main-area { flex-grow: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; }
+
+/* Éléments centraux */
+#syllable-display { font-size: 5rem; font-weight: bold; margin: 20px 0; color: #ffa502; }
+.bomb { font-size: 8rem; transition: transform 0.2s; }
+.shake { animation: shake 0.5s infinite; }
+
+#timer-bar { width: 70%; height: 12px; background: #444; border-radius: 6px; overflow: hidden; margin-bottom: 30px; }
+#timer-fill { width: 100%; height: 100%; background: #2ed573; transition: width 1s linear; }
+.critical #timer-fill { background: #ff4757; }
+
+#word-input { width: 60%; font-size: 2rem; text-transform: uppercase; border: 3px solid transparent; }
+#word-input.error { border-color: #ff4757; animation: shake 0.3s; }
+
+@keyframes shake {
+    0% { transform: translate(1px, 1px) rotate(0deg); }
+    25% { transform: translate(-3px, 0px) rotate(1deg); }
+    50% { transform: translate(-1px, 2px) rotate(-1deg); }
+    75% { transform: translate(3px, 1px) rotate(-1deg); }
+    100% { transform: translate(1px, -2px) rotate(-1deg); }
+}
