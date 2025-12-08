@@ -1,6 +1,6 @@
 const socket = io();
 
-console.log("🚀 Client JS chargé");
+console.log("🚀 Client JS v6 chargé");
 
 // DOM Elements
 const views = { login: document.getElementById('login-screen'), game: document.getElementById('game-interface') };
@@ -32,6 +32,7 @@ let isAdmin = false;
 let gameActive = false;
 let currentSyllable = "";
 let localPlayers = [];
+let isMyTurn = false; // NOUVELLE VARIABLE DE CONTROLE
 
 // --- ALPHABET ---
 function initLocalAlphabet() {
@@ -52,7 +53,6 @@ function joinGame() {
     const user = document.getElementById('username').value;
     if(!user) return;
     
-    // Débloquer l'audio
     audioCtx.success.play().catch(()=>{}); 
     
     socket.emit('join-game', user);
@@ -92,7 +92,7 @@ function saveSettings() {
     toggleSettings();
 }
 
-// --- CHAT & LOGS ---
+// --- CHAT ---
 document.getElementById('chat-input').addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && e.target.value.trim() !== "") {
         socket.emit('send-message', e.target.value);
@@ -104,7 +104,10 @@ function addLog(data) {
     if (data.type === 'system') {
         div.className = 'msg-system'; div.textContent = `${data.time} ${data.text}`;
     } else {
-        div.className = 'msg-player'; div.innerHTML = `<span class="time">${data.time}</span> <span class="user">${data.user}:</span> ${data.text}`;
+        div.className = 'msg-player';
+        // Style spécial pour les fantômes
+        if(data.isGhost) div.style.color = '#a5b1c2'; 
+        div.innerHTML = `<span class="time">${data.time}</span> <span class="user">${data.user}:</span> ${data.text}`;
     }
     chatFeed.appendChild(div);
     chatFeed.scrollTop = chatFeed.scrollHeight;
@@ -166,19 +169,29 @@ function triggerFeedback(id, type) {
     }
 }
 
-// --- JEU INPUT (CORRECTION ICI) ---
+// --- JEU INPUT (MODIFIÉ POUR VERROUILLAGE) ---
 mainInput.addEventListener('input', () => {
-    // 1. On envoie aux autres
+    // Si ce n'est pas mon tour, je ne fais RIEN.
+    if (!isMyTurn) {
+        mainInput.value = ""; // On nettoie au cas où
+        return; 
+    }
+
     socket.emit('typing', mainInput.value);
-    // 2. CORRECTION : On met à jour NOTRE propre affichage immédiatement
     updateTyping(socket.id, mainInput.value);
 });
 
 mainInput.addEventListener('keydown', (e) => {
+    // Si ce n'est pas mon tour, je ne fais RIEN.
+    if (!isMyTurn) {
+        // Optionnel : empêcher même d'écrire dans l'input
+        e.preventDefault(); 
+        return;
+    }
+
     if(e.key === 'Enter') {
         socket.emit('submit-word', mainInput.value);
         mainInput.value = '';
-        // On vide aussi l'affichage local
         updateTyping(socket.id, '');
     }
 });
@@ -202,10 +215,7 @@ function updateTyping(id, text) {
 }
 
 // --- SOCKET EVENTS ---
-socket.on('connect', () => {
-    console.log("Connecté, ID:", socket.id);
-    // On peut utiliser socket.id maintenant
-});
+socket.on('connect', () => { console.log("Connecté"); });
 
 socket.on('init-settings', (s) => {
     document.getElementById('set-lives').value = s.initialLives;
@@ -236,6 +246,9 @@ socket.on('new-turn', (data) => {
     currentSyllable = data.syllable;
     document.getElementById('syllable-display').textContent = data.syllable;
     
+    // MISE A JOUR DU TOUR
+    isMyTurn = (data.playerId === socket.id); // C'est ici qu'on définit si j'ai le droit d'écrire
+
     const target = localPlayers.find(p => p.id === data.playerId);
     if (target) {
         const deg = (target.angle * 180 / Math.PI) + 90; 
@@ -246,10 +259,12 @@ socket.on('new-turn', (data) => {
     const active = document.getElementById(`card-${data.playerId}`);
     if(active) active.classList.add('active');
 
-    // Reset visuel typing pour tout le monde
+    // Reset visuel typing
     document.querySelectorAll('.typing-box').forEach(b => { b.classList.remove('visible'); b.textContent=''; });
     mainInput.value = "";
-    if(data.playerId === socket.id) mainInput.focus();
+    
+    // Focus seulement si c'est mon tour
+    if(isMyTurn) mainInput.focus();
 });
 
 socket.on('player-typing', (d) => updateTyping(d.id, d.text));
@@ -297,12 +312,14 @@ socket.on('player-eliminated', (id) => {
 
 socket.on('game-over', () => {
     gameActive = false;
+    isMyTurn = false; // Plus personne ne peut écrire
     document.getElementById('syllable-display').textContent = "FIN";
     if(isAdmin) document.getElementById('start-overlay').classList.remove('hidden');
 });
 
 socket.on('reset-game', () => {
     gameActive = false;
+    isMyTurn = false;
     document.getElementById('syllable-display').textContent = "STOP";
     if(isAdmin) document.getElementById('start-overlay').classList.remove('hidden');
 });
