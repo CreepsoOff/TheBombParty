@@ -3,12 +3,14 @@ const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
 
+// --- CHARGEMENT DICTIONNAIRE ---
 let frenchWords;
 try {
     const loaded = require('an-array-of-french-words');
     frenchWords = loaded.default || loaded;
+    console.log(`[INIT] Dictionnaire chargé : ${frenchWords.length} mots.`);
 } catch (e) {
-    console.error("ERREUR: npm install an-array-of-french-words");
+    console.error("[ERREUR] npm install an-array-of-french-words");
     process.exit(1);
 }
 
@@ -34,6 +36,7 @@ let usedWords = new Set();
 let adminId = null;
 
 function broadcastSystemMsg(msg) {
+    console.log(`[CHAT SYSTEM] ${msg}`);
     io.emit('chat-message', { type: 'system', time: new Date().toLocaleTimeString('fr-FR'), text: msg });
 }
 
@@ -51,6 +54,8 @@ function nextTurn() {
     currentSyllable = SYLLABLES[Math.floor(Math.random() * SYLLABLES.length)];
     const randomTime = Math.floor(Math.random() * (SETTINGS.maxTime - SETTINGS.minTime + 1) + SETTINGS.minTime);
     
+    console.log(`[TOUR] Joueur: ${players[currentPlayerIndex].username} | Syllabe: ${currentSyllable} | Temps: ${randomTime}s`);
+    
     io.emit('new-turn', { playerId: players[currentPlayerIndex].id, syllable: currentSyllable });
 
     clearTimeout(timer);
@@ -59,10 +64,13 @@ function nextTurn() {
 
 function explodeBomb() {
     const loser = players[currentPlayerIndex];
+    console.log(`[BOOM] La bombe a explosé sur ${loser.username} !`);
+    
     loser.lives--;
     io.emit('explosion', { loserId: loser.id, livesLeft: loser.lives });
     
     if (loser.lives <= 0) {
+        console.log(`[ELIMINATION] ${loser.username} est éliminé.`);
         io.emit('player-eliminated', loser.id);
         broadcastSystemMsg(`${loser.username} est éliminé !`);
     }
@@ -75,6 +83,7 @@ function explodeBomb() {
 }
 
 function endGame(winner) {
+    console.log(`[FIN PARTIE] Vainqueur: ${winner ? winner.username : 'Aucun'}`);
     gameActive = false;
     clearTimeout(timer);
     io.emit('game-over', winner);
@@ -82,10 +91,16 @@ function endGame(winner) {
 }
 
 io.on('connection', (socket) => {
+    console.log(`[CONNECT] Nouvelle socket: ${socket.id}`);
     socket.emit('init-settings', SETTINGS);
 
     socket.on('join-game', (username) => {
-        if (players.length === 0) adminId = socket.id;
+        console.log(`[JOIN] Pseudo: ${username} (ID: ${socket.id})`);
+        if (players.length === 0) {
+            adminId = socket.id;
+            console.log(`[ADMIN] ${username} est défini comme Admin.`);
+        }
+        
         const player = {
             id: socket.id,
             username: username || `Joueur ${players.length + 1}`,
@@ -95,16 +110,20 @@ io.on('connection', (socket) => {
         };
         players.push(player);
         io.emit('update-players', { players, adminId });
-        socket.emit('my-data', { usedLetters: [] }); // Init alphabet local
+        socket.emit('my-data', { usedLetters: [] });
     });
 
     socket.on('send-message', (msg) => {
         const p = players.find(x => x.id === socket.id);
-        if (p) io.emit('chat-message', { type: 'player', time: new Date().toLocaleTimeString('fr-FR'), user: p.username, text: msg });
+        if (p) {
+            console.log(`[CHAT] ${p.username}: ${msg}`);
+            io.emit('chat-message', { type: 'player', time: new Date().toLocaleTimeString('fr-FR'), user: p.username, text: msg });
+        }
     });
 
     socket.on('update-settings', (newSettings) => {
         if (socket.id !== adminId || gameActive) return;
+        console.log(`[SETTINGS] Mise à jour:`, newSettings);
         SETTINGS = { ...SETTINGS, ...newSettings };
         io.emit('settings-changed', SETTINGS);
         broadcastSystemMsg("Paramètres modifiés.");
@@ -114,13 +133,25 @@ io.on('connection', (socket) => {
         if (!gameActive || socket.id !== players[currentPlayerIndex].id) return;
         const raw = word.trim();
         const clean = normalize(raw);
+        const p = players[currentPlayerIndex];
+
+        console.log(`[MOT REÇU] ${p.username} tente: "${raw}" (Clean: ${clean})`);
         
-        if (!clean.includes(currentSyllable)) { socket.emit('word-error', "Syllabe manquante !"); return; }
-        if (usedWords.has(clean)) { socket.emit('word-error', "Déjà utilisé !"); return; }
+        if (!clean.includes(currentSyllable)) { 
+            console.log(`[REFUS] Syllabe "${currentSyllable}" manquante.`);
+            socket.emit('word-error', "Syllabe manquante !"); 
+            return; 
+        }
+        if (usedWords.has(clean)) { 
+            console.log(`[REFUS] Mot déjà utilisé.`);
+            socket.emit('word-error', "Déjà utilisé !"); 
+            return; 
+        }
         
         if (DICTIONARY.has(clean)) {
+            console.log(`[VALIDE] Mot accepté !`);
             usedWords.add(clean);
-            const p = players[currentPlayerIndex];
+            
             let newChars = [];
             for (let char of clean) {
                 if (ALPHABET.includes(char) && !p.usedLetters.includes(char)) {
@@ -130,6 +161,7 @@ io.on('connection', (socket) => {
             }
             let bonus = false;
             if (p.usedLetters.length >= 26) {
+                console.log(`[BONUS] ${p.username} a complété l'alphabet !`);
                 p.lives++;
                 p.usedLetters = [];
                 bonus = true;
@@ -138,6 +170,7 @@ io.on('connection', (socket) => {
             io.emit('word-success', { playerId: socket.id, word: raw, newLetters: newChars, resetAlphabet: bonus, lives: p.lives });
             nextTurn();
         } else {
+            console.log(`[REFUS] Mot inconnu au dictionnaire.`);
             socket.emit('word-error', "Mot inconnu !");
         }
     });
@@ -146,6 +179,7 @@ io.on('connection', (socket) => {
     
     socket.on('start-command', () => {
         if (socket.id === adminId && !gameActive && players.length >= 2) {
+            console.log(`[START] Lancement de la partie !`);
             gameActive = true;
             usedWords.clear();
             currentPlayerIndex = 0;
@@ -157,10 +191,15 @@ io.on('connection', (socket) => {
     });
 
     socket.on('disconnect', () => {
+        console.log(`[DISCONNECT] Socket ${socket.id}`);
         players = players.filter(x => x.id !== socket.id);
-        if (socket.id === adminId && players.length > 0) adminId = players[0].id;
+        if (socket.id === adminId && players.length > 0) {
+            adminId = players[0].id;
+            console.log(`[ADMIN] Nouveau Admin: ${players[0].username}`);
+        }
         io.emit('update-players', { players, adminId });
         if (gameActive && players.filter(x => x.lives > 0).length < 2) {
+            console.log(`[STOP] Partie annulée (manque de joueurs).`);
             gameActive = false;
             clearTimeout(timer);
             io.emit('reset-game');
@@ -168,4 +207,5 @@ io.on('connection', (socket) => {
     });
 });
 
-server.listen(3000, () => console.log('Serveur v4.0 démarré'));
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => console.log(`🚀 Serveur v5.1 (Logs Activés) démarré sur port ${PORT}`));

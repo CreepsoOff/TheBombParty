@@ -1,6 +1,8 @@
 const socket = io();
 
-// DOM
+console.log("🚀 Client JS chargé");
+
+// DOM Elements
 const views = { login: document.getElementById('login-screen'), game: document.getElementById('game-interface') };
 const arena = document.getElementById('arena');
 const pContainer = document.getElementById('players-container');
@@ -9,38 +11,35 @@ const mainInput = document.getElementById('main-input');
 const chatFeed = document.getElementById('chat-feed');
 const localAlphaGrid = document.getElementById('local-alphabet-grid');
 
-// AUDIO (Liens stables)
+// AUDIO
 const audioCtx = {
-    pop: new Audio('https://raw.githubusercontent.com/victrme/BombParty-Genius/master/src/icons/favicon.ico'), // Placeholder, à remplacer
-    // Utilisons des sons base64 très courts pour éviter les 404 dans cet exemple sans fichiers locaux
-    // Pour une vraie prod: mettre des fichiers .mp3 dans le dossier public
-    type: new Audio('https://codeskulptor-demos.commondatastorage.googleapis.com/pang/pop.mp3'),
     explode: new Audio('https://codeskulptor-demos.commondatastorage.googleapis.com/GalaxyInvaders/explosion_02.mp3'),
-    error: new Audio('https://codeskulptor-demos.commondatastorage.googleapis.com/assets/sounddogs/missile.mp3')
+    error: new Audio('https://codeskulptor-demos.commondatastorage.googleapis.com/assets/sounddogs/missile.mp3'),
+    success: new Audio('https://codeskulptor-demos.commondatastorage.googleapis.com/pang/pop.mp3')
 };
-Object.values(audioCtx).forEach(a => a.volume = 0.4);
+Object.values(audioCtx).forEach(a => a.volume = 0.3);
 
 function playSound(name) {
     if(audioCtx[name]) {
         audioCtx[name].currentTime = 0;
-        audioCtx[name].play().catch(e => console.log("Audio bloqué par le navigateur:", e));
+        audioCtx[name].play().catch((e) => {});
     }
 }
 
-// State
+// Variables Globales
 let myId = null;
 let isAdmin = false;
 let gameActive = false;
 let currentSyllable = "";
 let localPlayers = [];
 
-// INIT ALPHABET UI
+// --- ALPHABET ---
 function initLocalAlphabet() {
     localAlphaGrid.innerHTML = '';
     const alpha = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
     for(let char of alpha) {
         const div = document.createElement('div');
-        div.className = 'alpha-letter';
+        div.className = 'alpha-letter'; 
         div.id = `local-alpha-${char}`;
         div.textContent = char;
         localAlphaGrid.appendChild(div);
@@ -48,85 +47,81 @@ function initLocalAlphabet() {
 }
 initLocalAlphabet();
 
-// CONNEXION
+// --- CONNEXION ---
 function joinGame() {
     const user = document.getElementById('username').value;
     if(!user) return;
     
-    // Hack pour débloquer l'audio sur Chrome
-    playSound('type'); 
+    // Débloquer l'audio
+    audioCtx.success.play().catch(()=>{}); 
     
     socket.emit('join-game', user);
     views.login.classList.add('hidden');
     views.game.classList.remove('hidden');
     
     document.addEventListener('click', (e) => {
-        if(!e.target.closest('#chat-panel') && !e.target.closest('.settings-modal')) {
+        if(!e.target.closest('.chat-panel') && !e.target.closest('.settings-modal')) {
             mainInput.focus();
         }
     });
     mainInput.focus();
 }
 
-// CHAT TOGGLE
 function toggleChat() {
     document.getElementById('chat-panel').classList.toggle('collapsed');
 }
-
-function sendStart() { socket.emit('start-command'); }
-
-// SETTINGS
-function toggleSettings() {
-    const modal = document.getElementById('settings-modal');
-    modal.classList.toggle('hidden');
-    const canEdit = isAdmin && !gameActive;
-    document.getElementById('settings-content').style.pointerEvents = canEdit ? 'auto' : 'none';
-    document.getElementById('settings-lock-msg').classList.toggle('hidden', canEdit);
-    document.getElementById('save-settings-btn').classList.toggle('hidden', !canEdit);
+function sendStart() { 
+    socket.emit('start-command'); 
 }
 
+// --- SETTINGS ---
+function toggleSettings() {
+    document.getElementById('settings-modal').classList.toggle('hidden');
+    const canEdit = isAdmin && !gameActive;
+    document.getElementById('settings-content').style.pointerEvents = canEdit ? 'auto' : 'none';
+    document.getElementById('save-settings-btn').classList.toggle('hidden', !canEdit);
+}
 function saveSettings() {
     if(!isAdmin) return;
-    socket.emit('update-settings', {
+    const settings = {
         initialLives: parseInt(document.getElementById('set-lives').value),
         minTime: parseInt(document.getElementById('set-min').value),
         maxTime: parseInt(document.getElementById('set-max').value),
-    });
+    };
+    socket.emit('update-settings', settings);
     toggleSettings();
 }
 
-// CHAT LOGIC
+// --- CHAT & LOGS ---
 document.getElementById('chat-input').addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && e.target.value.trim() !== "") {
         socket.emit('send-message', e.target.value);
         e.target.value = "";
     }
 });
-
 function addLog(data) {
     const div = document.createElement('div');
     if (data.type === 'system') {
-        div.className = 'msg-system';
-        div.textContent = `${data.time} ${data.text}`;
+        div.className = 'msg-system'; div.textContent = `${data.time} ${data.text}`;
     } else {
-        div.className = 'msg-player';
-        div.innerHTML = `<span class="time">${data.time}</span> <span class="user">${data.user}:</span> ${data.text}`;
+        div.className = 'msg-player'; div.innerHTML = `<span class="time">${data.time}</span> <span class="user">${data.user}:</span> ${data.text}`;
     }
     chatFeed.appendChild(div);
     chatFeed.scrollTop = chatFeed.scrollHeight;
 }
 
-// LAYOUT
+// --- LAYOUT ---
 function updateLayout(players) {
     localPlayers = players;
     pContainer.innerHTML = "";
+    
     const radius = Math.min(arena.offsetWidth, arena.offsetHeight) * 0.35;
     const centerX = arena.offsetWidth / 2;
     const centerY = arena.offsetHeight / 2;
 
     players.forEach((p, index) => {
         const angle = (index / players.length) * 2 * Math.PI - (Math.PI / 2);
-        p.angle = angle;
+        p.angle = angle; 
         
         const x = centerX + radius * Math.cos(angle);
         const y = centerY + radius * Math.sin(angle);
@@ -140,6 +135,7 @@ function updateLayout(players) {
         const hearts = '❤️'.repeat(p.lives);
         
         card.innerHTML = `
+            <div class="feedback-icon" id="fb-${p.id}"></div>
             <div class="lives" id="lives-${p.id}">${hearts}</div>
             <div class="avatar">${['🤖','👽','🦊','🐱','🐯','🐸'][p.avatar]}</div>
             <div class="username">${p.username}</div>
@@ -149,15 +145,41 @@ function updateLayout(players) {
     });
 }
 
-// GAME INPUT
+function triggerFeedback(id, type) {
+    const el = document.getElementById(`fb-${id}`);
+    const card = document.getElementById(`card-${id}`);
+    if(!el || !card) return;
+
+    el.className = 'feedback-icon';
+    void el.offsetWidth; 
+
+    if(type === 'success') {
+        el.textContent = "👍";
+        el.classList.add('pop-anim');
+        playSound('success');
+    } else if (type === 'error') {
+        el.textContent = "❌";
+        el.classList.add('cross-anim');
+        card.classList.add('shake');
+        playSound('error');
+        setTimeout(() => card.classList.remove('shake'), 500);
+    }
+}
+
+// --- JEU INPUT (CORRECTION ICI) ---
 mainInput.addEventListener('input', () => {
+    // 1. On envoie aux autres
     socket.emit('typing', mainInput.value);
-    playSound('type');
+    // 2. CORRECTION : On met à jour NOTRE propre affichage immédiatement
+    updateTyping(socket.id, mainInput.value);
 });
+
 mainInput.addEventListener('keydown', (e) => {
     if(e.key === 'Enter') {
         socket.emit('submit-word', mainInput.value);
         mainInput.value = '';
+        // On vide aussi l'affichage local
+        updateTyping(socket.id, '');
     }
 });
 
@@ -165,18 +187,26 @@ function updateTyping(id, text) {
     const box = document.getElementById(`type-${id}`);
     if(!box) return;
     
-    // Afficher la boite seulement si y'a du texte
-    box.style.display = text ? 'block' : 'none';
-    
-    if(currentSyllable && text) {
-        const reg = new RegExp(`(${currentSyllable})`, 'i');
-        box.innerHTML = text.replace(reg, '<span class="hl">$1</span>');
+    if(text) {
+        box.classList.add('visible');
+        if(currentSyllable) {
+            const reg = new RegExp(`(${currentSyllable})`, 'i');
+            box.innerHTML = text.replace(reg, '<span class="hl">$1</span>');
+        } else {
+            box.textContent = text;
+        }
     } else {
-        box.textContent = text;
+        box.classList.remove('visible');
+        box.textContent = '';
     }
 }
 
-// SOCKET EVENTS
+// --- SOCKET EVENTS ---
+socket.on('connect', () => {
+    console.log("Connecté, ID:", socket.id);
+    // On peut utiliser socket.id maintenant
+});
+
 socket.on('init-settings', (s) => {
     document.getElementById('set-lives').value = s.initialLives;
     document.getElementById('set-min').value = s.minTime;
@@ -185,7 +215,6 @@ socket.on('init-settings', (s) => {
 
 socket.on('update-players', (data) => {
     isAdmin = (data.adminId === socket.id);
-    // Masquer le bouton start si la partie est déjà active
     if (!gameActive && isAdmin && data.players.length >= 2) {
         document.getElementById('start-overlay').classList.remove('hidden');
     } else {
@@ -198,8 +227,7 @@ socket.on('game-started', (players) => {
     gameActive = true;
     document.getElementById('start-overlay').classList.add('hidden');
     updateLayout(players);
-    // Reset alphabet visuel
-    document.querySelectorAll('.alpha-letter').forEach(d => d.className = 'alpha-letter');
+    document.querySelectorAll('.alpha-letter').forEach(d => d.classList.remove('used'));
 });
 
 socket.on('chat-message', addLog);
@@ -218,8 +246,8 @@ socket.on('new-turn', (data) => {
     const active = document.getElementById(`card-${data.playerId}`);
     if(active) active.classList.add('active');
 
-    // Reset typing displays
-    document.querySelectorAll('.typing-box').forEach(b => { b.innerHTML = ''; b.style.display = 'none'; });
+    // Reset visuel typing pour tout le monde
+    document.querySelectorAll('.typing-box').forEach(b => { b.classList.remove('visible'); b.textContent=''; });
     mainInput.value = "";
     if(data.playerId === socket.id) mainInput.focus();
 });
@@ -227,31 +255,39 @@ socket.on('new-turn', (data) => {
 socket.on('player-typing', (d) => updateTyping(d.id, d.text));
 
 socket.on('word-success', (data) => {
-    // Si c'est moi, update sidebar
+    triggerFeedback(data.playerId, 'success');
+    
     if(data.playerId === socket.id) {
-        playSound('type'); // Son de validation
         if(data.resetAlphabet) {
-            document.querySelectorAll('.alpha-letter').forEach(d => d.className = 'alpha-letter');
+             document.querySelectorAll('.alpha-letter').forEach(d => d.classList.remove('used'));
         } else {
             data.newLetters.forEach(c => {
-                document.getElementById(`local-alpha-${c}`).classList.add('found');
+                const el = document.getElementById(`local-alpha-${c}`);
+                if(el) el.classList.add('used');
             });
         }
     }
-    // Update Vies sur le joueur
-    const lifeDiv = document.getElementById(`lives-${data.playerId}`);
-    if(lifeDiv) lifeDiv.textContent = '❤️'.repeat(data.lives);
+    const l = document.getElementById(`lives-${data.playerId}`);
+    if(l) l.textContent = '❤️'.repeat(data.lives);
 });
 
-socket.on('word-error', () => playSound('error'));
+socket.on('word-error', () => {
+    triggerFeedback(socket.id, 'error');
+});
 
 socket.on('explosion', (data) => {
     playSound('explode');
     const bomb = document.getElementById('bomb');
+    bomb.style.animation = "none"; 
     bomb.style.transform = "translate(-50%, -50%) scale(1.5)";
-    setTimeout(() => bomb.style.transform = "translate(-50%, -50%) scale(1)", 300);
-    const lifeDiv = document.getElementById(`lives-${data.loserId}`);
-    if(lifeDiv) lifeDiv.textContent = '❤️'.repeat(data.livesLeft);
+    setTimeout(() => {
+        bomb.style.transform = "translate(-50%, -50%) scale(1)";
+        bomb.style.animation = "bounce 2s infinite ease-in-out"; 
+    }, 300);
+    
+    const l = document.getElementById(`lives-${data.loserId}`);
+    if(l) l.textContent = '❤️'.repeat(data.livesLeft);
+    triggerFeedback(data.loserId, 'error'); 
 });
 
 socket.on('player-eliminated', (id) => {
